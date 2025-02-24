@@ -341,6 +341,26 @@ class UniroadDB {
         }
     }
 
+    async listItem(itemname) {
+        const marketTokenFlow = this.uniroad.owned.get(marketItemName(itemname));
+        if (!marketTokenFlow)
+            throw new Error("Item " + itemname + " not found");
+	const marketToken = this.TXF.importFlow(JSON.stringify(marketTokenFlow));
+	const status = await this.TXF.getTokenStatus(marketToken, this.secret, this.transport);
+	console.log(status);
+    	if (!status?.owned) {
+    	    throw new Error("Item " + itemname + " not owned by " + this.name);
+        }
+    	if (!status?.unspent) {
+    	    throw new Error("Item " + itemname + " not spendable by " + this.name);
+        }
+        
+        this.uniroad.marketplace.set(marketItemName(itemname), marketTokenFlow);
+	const pubkey = marketTokenFlow.token.state.challenge.pubkey;
+	this.uniroad.users.set('pubkey_' + pubkey, { username: this.name });
+        this.uniroad.owned.delete(marketItemName(itemname));
+    }
+
     getNametag() {
         return this.uniroad.owned.get(nametagName(this.name));
     }
