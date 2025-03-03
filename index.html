@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uniroad - P2P Marketplace</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Uniroad</h1>
+            <div class="connection-status">
+                <span id="status-indicator"></span>
+                <span id="status-text">Disconnected</span>
+            </div>
+        </header>
+
+        <div class="user-info">
+            <div class="user-details">
+                <div>Username: <span id="username-display">Not connected</span></div>
+                <div>Public Key: <span id="pubkey-display">-</span></div>
+            </div>
+            <div class="balance">
+                <div>Balance: <span id="balance-display">0</span> coins</div>
+                <button id="add-coin-btn" class="action-btn">Add Coin</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="panel marketplace-panel">
+                <h2>Marketplace</h2>
+                <div class="panel-content" id="marketplace-list">
+                    <!-- Marketplace items will be displayed here -->
+                    <div class="empty-message">Loading marketplace items...</div>
+                </div>
+            </div>
+
+            <div class="panel inventory-panel">
+                <h2>My Inventory</h2>
+                <div class="panel-content" id="inventory-list">
+                    <!-- Inventory items will be displayed here -->
+                    <div class="empty-message">Loading inventory items...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="action-panel">
+            <div class="action-group">
+                <h3>Add Item to Marketplace</h3>
+                <div class="form-group">
+                    <input type="text" id="new-item-name" placeholder="Item name">
+                    <input type="text" id="new-item-desc" placeholder="Item description">
+                    <button id="add-item-btn" class="action-btn">Add Item</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="log-panel">
+            <h3>Activity Log</h3>
+            <div id="log-container"></div>
+        </div>
+
+        <div class="connection-panel">
+            <h3>Connection Settings</h3>
+            <div class="form-group">
+                <input type="text" id="server-url" placeholder="Server URL" value="ws://localhost:1234">
+                <input type="text" id="room-name" placeholder="Room Name" value="uniroad">
+                <input type="text" id="username" placeholder="Username">
+                <input type="password" id="secret" placeholder="Secret Key">
+                <button id="connect-btn" class="primary-btn">Connect</button>
+                <button id="disconnect-btn" class="secondary-btn">Disconnect</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for confirmations and notifications -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h3 id="modal-title">Confirmation</h3>
+            <p id="modal-message"></p>
+            <div class="modal-actions">
+                <button id="modal-confirm" class="primary-btn">Confirm</button>
+                <button id="modal-cancel" class="secondary-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="dist/bundle.js"></script>
+</body>
+</html>

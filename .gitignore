@@ -130,3 +130,10 @@ dist
 .pnp.*
 
 *.bac
+
+# Project specific
+data/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
