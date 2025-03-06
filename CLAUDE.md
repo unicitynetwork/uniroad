@@ -6,7 +6,8 @@
 - **Build for GitHub Pages**: `npm run build:gh-pages` (outputs to 'docs' folder)
 - **Start WebSocket server**: `npm run start-server` or `node y-websocket-server.js [port] [persistence-dir]`
 - **Run node client**: `npm run start-node-client` or `node node-client.js [serverUrl] [roomName] [username] [secret]`
-- **Check server status**: HTTP endpoint at `http://localhost:[port]/status`
+- **Default WebSocket server**: `ws://gateway-test1.unicity.network:7787`
+- **Check server status**: HTTP endpoint at `http://[server-host]:[port]/status`
 - **Tests**: None currently implemented (once added, use `npm test` to run all tests)
 - **Lint**: No linter configured (consider adding ESLint with `npm install --save-dev eslint`)
 

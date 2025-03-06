@@ -6,7 +6,7 @@ const { UniroadDB } = require('./uniroad-db');
 const TXF = require('@unicitylabs/tx-flow-engine'); // Replace with your actual import
 
 function createNodeClient(options = {}) {
-    const serverUrl = options.serverUrl || 'ws://localhost:1234';
+    const serverUrl = options.serverUrl || 'ws://gateway-test1.unicity.network:7787';
     const roomName = options.roomName || 'uniroad';
     const username = options.username || `node-client-${Math.floor(Math.random() * 10000)}`;
     const secret = options.secret;
@@ -220,7 +220,7 @@ function setupCli(db) {
 if (require.main === module) {
     // Allow command line arguments
     const args = process.argv.slice(2);
-    const serverUrl = args[0] || 'ws://localhost:1234';
+    const serverUrl = args[0] || 'ws://gateway-test1.unicity.network:7787';
     const roomName = args[1] || 'uniroad';
     const username = args[2] || `node-client-${Math.floor(Math.random() * 10000)}`;
     const secret = args[3] || 'test-secret-key';

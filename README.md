@@ -81,7 +81,7 @@ node node-client.js [serverUrl] [roomName] [username] [secret]
 
 Example:
 ```
-node node-client.js ws://localhost:1234 uniroad user1 my-secret-key
+node node-client.js ws://gateway-test1.unicity.network:7787 uniroad user1 my-secret-key
 ```
 
 ## Development
