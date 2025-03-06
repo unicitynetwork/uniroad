@@ -48,15 +48,23 @@ class UniroadDB {
 
     _setupObservers = () => {
         this.uniroad.marketplace.observe((event) => {
+            let marketChanged = false;
+            
             event.changes.keys.forEach((change, key) => {
                 if (change.action === 'add' || change.action === 'update') {
                     const data = this.uniroad.marketplace.get(key);
                     this.environmentHandlers.log(`Market item updated: ${key}`, data);
-                    if (this.marketViewer) {
-                        this.marketViewer(this.getMarketList.bind(this), data, key);
-                    }
+                    marketChanged = true;
+                } else if (change.action === 'delete') {
+                    this.environmentHandlers.log(`Market item removed: ${key}`);
+                    marketChanged = true;
                 }
             });
+            
+            // Notify the market viewer of changes regardless of the action type
+            if (marketChanged && this.marketViewer) {
+                this.marketViewer(this.getMarketList.bind(this));
+            }
         });
 
         this.uniroad.owned.observe((event) => {

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uniroad Marketplace</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            grid-gap: 20px;
+        }
+        .sidebar {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .main-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .status-bar {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .marketplace, .inventory {
+            margin-top: 20px;
+        }
+        .item-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 10px;
+        }
+        .item-card {
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 4px;
+            background: #fff;
+        }
+        .button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+        .button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+        .success {
+            color: green;
+            margin-top: 10px;
+        }
+        #logArea {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            height: 150px;
+            overflow-y: auto;
+            font-family: monospace;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="header">
+                <h2>User Controls</h2>
+            </div>
+            <div class="status-bar">
+                <div>Status: <span id="connectionStatus">Connecting...</span></div>
+                <div>User: <span id="userInfo">-</span></div>
+                <div>Balance: <span id="userBalance">0</span></div>
+            </div>
+            <div>
+                <h3>Add New Item</h3>
+                <input type="text" id="newItemName" placeholder="Item Name">
+                <textarea id="newItemDescription" placeholder="Item Description"></textarea>
+                <button class="button" onclick="addNewItem()">Add Item</button>
+            </div>
+            <div style="margin-top: 20px;">
+                <button class="button" onclick="addNewCoin()">Add Coin</button>
+            </div>
+            <div id="logArea"></div>
+        </div>
+        <div class="main-content">
+            <div class="marketplace">
+                <h2>Marketplace</h2>
+                <div id="marketplaceItems" class="item-grid"></div>
+            </div>
+            <div class="inventory">
+                <h2>Your Inventory</h2>
+                <div id="inventoryItems" class="item-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/yjs/13.6.12/y.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/y-websocket/1.5.3/y-websocket.js"></script>
+    <script src="uniroad-bundle.js"></script>
+    <script>
+        let db;
+        const log = (message) => {
+            const logArea = document.getElementById('logArea');
+            const timestamp = new Date().toLocaleTimeString();
+            logArea.innerHTML += `[${timestamp}] ${message}\n`;
+            logArea.scrollTop = logArea.scrollHeight;
+        };
+
+        function updateMarketplace(items) {
+            const marketplaceDiv = document.getElementById('marketplaceItems');
+            marketplaceDiv.innerHTML = '';
+            
+            items.forEach(item => {
+                const itemData = typeof item === 'string' ? JSON.parse(item) : item;
+                const card = document.createElement('div');
+                card.className = 'item-card';
+                card.innerHTML = `
+                    <h3>${itemData.name || 'Unnamed Item'}</h3>
+                    <p>${itemData.description || 'No description'}</p>
+                    <button class="button" onclick="purchaseItem('${itemData.name}')">Purchase</button>
+                `;
+                marketplaceDiv.appendChild(card);
+            });
+        }
+
+        function updateInventory(inventory) {
+            const inventoryDiv = document.getElementById('inventoryItems');
+            inventoryDiv.innerHTML = '';
+            
+            document.getElementById('userBalance').textContent = inventory.balance.toString();
+            
+            inventory.items.forEach(item => {
+                const itemData = item.tokenData;
+                const parsedData = typeof itemData === 'string' ? JSON.parse(itemData) : itemData;
+                const card = document.createElement('div');
+                card.className = 'item-card';
+                card.innerHTML = `
+                    <h3>${parsedData.name || 'Unnamed Item'}</h3>
+                    <p>${parsedData.description || 'No description'}</p>
+                    <button class="button" onclick="listItem('${parsedData.name}')">List for Sale</button>
+                `;
+                inventoryDiv.appendChild(card);
+            });
+        }
+
+        async function initializeClient() {
+            const ydoc = new Y.Doc();
+            const wsProvider = new WebsocketProvider(
+                'ws://localhost:1234',
+                'uniroad',
+                ydoc
+            );
+
+            const username = `web-client-${Math.floor(Math.random() * 10000)}`;
+            const secret = 'test-secret-key'; // In production, this should be securely generated/stored
+
+            db = new UniroadDB(
+                wsProvider,
+                ydoc,
+                TXF,
+                secret,
+                username,
+                {
+                    environmentHandlers: {
+                        log: (msg) => log(msg),
+                        registerCleanup: (cleanup) => {
+                            window.addEventListener('beforeunload', cleanup);
+                        }
+                    }
+                }
+            );
+
+            wsProvider.on('status', ({ status }) => {
+                document.getElementById('connectionStatus').textContent = status;
+            });
+
+            db.registerMarketViewer((getMarketList) => {
+                const items = getMarketList();
+                updateMarketplace(items);
+            });
+
+            db.registerInventoryViewer(async (getInventoryList) => {
+                const inventory = await getInventoryList();
+                updateInventory(inventory);
+            });
+
+            document.getElementById('userInfo').textContent = username;
+        }
+
+        async function addNewItem() {
+            const nameInput = document.getElementById('newItemName');
+            const descInput = document.getElementById('newItemDescription');
+            
+            try {
+                await db.addMarketItem(nameInput.value, JSON.stringify({
+                    name: nameInput.value,
+                    description: descInput.value,
+                    createdAt: new Date().toISOString()
+                }));
+                
+                log(`Added new item: ${nameInput.value}`);
+                nameInput.value = '';
+                descInput.value = '';
+            } catch (error) {
+                log(`Error adding item: ${error.message}`);
+            }
+        }
+
+        async function addNewCoin() {
+            try {
+                await db.addCoin();
+                log('Added new coin to inventory');
+            } catch (error) {
+                log(`Error adding coin: ${error.message}`);
+            }
+        }
+
+        async function purchaseItem(itemName) {
+            try {
+                await db.purchase(itemName);
+                log(`Purchased item: ${itemName}`);
+            } catch (error) {
+                log(`Error purchasing item: ${error.message}`);
+            }
+        }
+
+        async function listItem(itemName) {
+            try {
+                await db.listItem(itemName);
+                log(`Listed item for sale: ${itemName}`);
+            } catch (error) {
+                log(`Error listing item: ${error.message}`);
+            }
+        }
+
+        window.addEventListener('load', initializeClient);
+    </script>
+<script defer src="uniroad-bundle.js"></script></body>
+</html>
