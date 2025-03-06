@@ -9,6 +9,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "webpack --config webpack.config.js",
+    "build:gh-pages": "webpack --config webpack.config.js",
     "start-server": "node y-websocket-server.js",
     "start-node-client": "node node-client.js",
     "dev": "webpack --config webpack.config.js --mode development --watch"
@@ -34,8 +35,12 @@
     "@babel/runtime": "^7.23.9",
     "babel-loader": "^9.1.3",
     "browserify-zlib": "^0.2.0",
+    "copy-webpack-plugin": "^13.0.0",
     "core-js": "^3.35.1",
+    "css-loader": "^7.1.2",
+    "html-webpack-plugin": "^5.6.3",
     "https-browserify": "^1.0.0",
+    "mini-css-extract-plugin": "^2.9.2",
     "os-browserify": "^0.3.0",
     "path-browserify": "^1.0.1",
     "stream-browserify": "^3.0.0",
