@@ -13,10 +13,12 @@
 
 const WebSocket = require('ws');
 const http = require('http');
+const https = require('https');
 const Y = require('yjs');
 const fs = require('fs');
 const path = require('path');
 const { setupWSConnection } = require('y-websocket/bin/utils');
+const cors = require('cors');
 
 // Parse arguments
 const port = process.argv[2] || process.env.PORT || 1234;
@@ -27,8 +29,38 @@ if (!fs.existsSync(persistenceDir)) {
     fs.mkdirSync(persistenceDir, { recursive: true });
 }
 
+// Parse SSL options from environment variables
+const useSSL = process.env.USE_SSL === 'true';
+const sslOptions = useSSL ? {
+    key: fs.readFileSync(process.env.SSL_KEY || './ssl/key.pem'),
+    cert: fs.readFileSync(process.env.SSL_CERT || './ssl/cert.pem')
+} : null;
+
+// Create HTTP or HTTPS server based on configuration
+const createServer = (handler) => {
+    if (useSSL) {
+        console.log('Using secure HTTPS/WSS server');
+        return https.createServer(sslOptions, handler);
+    } else {
+        console.log('Using HTTP/WS server (consider using HTTPS for production)');
+        return http.createServer(handler);
+    }
+};
+
 // Create HTTP & WebSocket servers
-const server = http.createServer((req, res) => {
+const server = createServer((req, res) => {
+    // Set CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+        res.writeHead(204);
+        res.end();
+        return;
+    }
+    
     // Basic HTTP endpoint to check server status
     if (req.url === '/status') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -38,6 +70,7 @@ const server = http.createServer((req, res) => {
             clients: wss.clients.size,
             uptime: process.uptime(),
             version: '1.0.0',
+            secure: useSSL,
             persistence: {
                 enabled: true,
                 directory: persistenceDir
@@ -64,7 +97,7 @@ const server = http.createServer((req, res) => {
         <body>
             <h1>Y-Websocket Server</h1>
             <div class="status">
-                <p>Server is running on port ${port}</p>
+                <p>Server is running on port ${port} (${useSSL ? 'secure WSS' : 'WS'})</p>
                 <p>Current clients: <span class="clients">${wss.clients.size}</span></p>
                 <p>Persistence directory: ${persistenceDir}</p>
                 <p>Uptime: ${Math.floor(process.uptime())} seconds</p>
@@ -123,8 +156,11 @@ const getYDoc = (docName) => {
 
 wss.on('connection', (conn, req) => {
     // Extract room name from URL, default to 'default-room'
-    const url = new URL(req.url, 'http://localhost');
+    const url = new URL(req.url, `http${useSSL ? 's' : ''}://localhost`);
     const roomName = url.searchParams.get('room') || 'default-room';
+    
+    // Extract origin for logging
+    const origin = req.headers.origin || 'unknown';
     
     // Get or create the document for this room
     const doc = getYDoc(roomName);
@@ -136,14 +172,40 @@ wss.on('connection', (conn, req) => {
     });
     
     // Log connection
-    console.log(`New connection to room: ${roomName}, client IP: ${req.socket.remoteAddress}`);
+    console.log(`New connection to room: ${roomName}, origin: ${origin}, client IP: ${req.socket.remoteAddress}`);
     console.log(`Total clients: ${wss.clients.size}`);
 });
 
 // Start the server
 server.listen(port, () => {
-    console.log(`Y-Websocket server is running on port ${port}`);
+    const protocol = useSSL ? 'wss' : 'ws';
+    console.log(`Y-Websocket server is running on ${protocol}://localhost:${port}`);
     console.log(`Persistence directory: ${persistenceDir}`);
+    console.log(`CORS enabled: Access-Control-Allow-Origin set to '*'`);
+    
+    if (!useSSL) {
+        console.log(`
+IMPORTANT NOTE FOR HTTPS CLIENTS:
+If you're accessing this WebSocket server from a website served over HTTPS (like GitHub Pages),
+you will need to run this server with SSL enabled to avoid mixed-content errors.
+
+To enable SSL, you need to:
+1. Generate SSL certificates (or use your existing ones)
+2. Set the following environment variables:
+   USE_SSL=true
+   SSL_KEY=/path/to/your/key.pem
+   SSL_CERT=/path/to/your/cert.pem
+
+Example:
+   USE_SSL=true SSL_KEY=./ssl/key.pem SSL_CERT=./ssl/cert.pem node y-websocket-server.js
+
+If you need to quickly generate self-signed certificates for testing:
+   mkdir -p ssl
+   openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout ssl/key.pem -out ssl/cert.pem
+
+Note: For self-signed certificates, you'll need to add a security exception in your browser.
+`);
+    }
 });
 
 // Handle server shutdown

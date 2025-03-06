@@ -4,31 +4,35 @@
 - **Install dependencies**: `npm install`
 - **Build client**: `npm run build` (production) or `npm run dev` (development with watch)
 - **Build for GitHub Pages**: `npm run build:gh-pages` (outputs to 'docs' folder)
-- **Start WebSocket server**: `npm run start-server` or `node y-websocket-server.js [port] [persistence-dir]`
+- **Start WebSocket server**: 
+  - Regular: `npm run start-server` or `node y-websocket-server.js [port] [persistence-dir]`
+  - Secure (for HTTPS clients): `USE_SSL=true SSL_KEY=./ssl/key.pem SSL_CERT=./ssl/cert.pem npm run start-server`
 - **Run node client**: `npm run start-node-client` or `node node-client.js [serverUrl] [roomName] [username] [secret]`
-- **Default WebSocket server**: `ws://gateway-test1.unicity.network:7787`
-- **Check server status**: HTTP endpoint at `http://[server-host]:[port]/status`
-- **Tests**: None currently implemented (once added, use `npm test` to run all tests)
-- **Lint**: No linter configured (consider adding ESLint with `npm install --save-dev eslint`)
+- **Default WebSocket server**: 
+  - HTTP pages: `ws://gateway-test1.unicity.network:7787` 
+  - HTTPS pages: `wss://gateway-test1.unicity.network:7787` (requires SSL on server)
+- **Check server status**: HTTP GET `http://[server-host]:[port]/status`
+- **Tests**: None implemented (add with `npm test`)
+- **Lint**: None configured (add ESLint: `npm install --save-dev eslint && npx eslint --init`)
+- **Debug mode**: Set `DEBUG=y-websocket* npm run start-server` for detailed server logs
 
 ## Code Style Guidelines
-- **Imports**: CommonJS style with `require()`, grouped by external/internal
+- **Imports**: CommonJS with `require()`, external packages first, then internal modules
+- **Formatting**: 4-space indentation, clean spacing around operators
 - **Module System**: CommonJS (package.json: "type": "commonjs")
-- **Formatting**: 4-space indentation, camelCase for variables
-- **Browser Compatibility**: Babel with preset-env targeting "> 0.25%, not dead"
 - **Naming Conventions**:
   - Functions/variables: camelCase (e.g., `getMarketList`)
   - Classes: PascalCase (e.g., `UniroadDB`)
-  - Constants: SNAKE_CASE or camelCase (e.g., `coin_token_type`)
+  - Constants: snake_case (e.g., `coin_token_type`)
   - Private methods: Prefix with underscore (e.g., `_setupObservers`)
-- **Error Handling**: Try/catch blocks with specific error messages
-- **Classes**: Arrow functions for methods that need `this` binding
-- **Comments**: JSDoc-style for function documentation
-- **Asynchronous Code**: Prefer async/await over callbacks and promise chains
+- **Error Handling**: try/catch blocks with specific error messages, async/await pattern
+- **Documentation**: Inline comments for complex logic, section headers for organization
+- **Async Code**: Use async/await, avoid callback chains
+- **Browser Compatibility**: Babel preset-env targets "> 0.25%, not dead"
 
 ## Project Architecture
 - **Y.js documents**: Shared state and real-time collaboration (CRDT)
 - **WebSocket provider**: Network synchronization (y-websocket)
 - **Transaction flow engine**: Token operations (@unicitylabs/tx-flow-engine)
-- **Web client**: Browser-based UI with webpack bundling
+- **Web client**: Browser-based UI using webpack for bundling
 - **Node client**: CLI interface for marketplace interaction

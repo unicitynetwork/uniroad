@@ -55,6 +55,16 @@ function initApp() {
     // Disable action buttons initially
     updateUIState(false);
     
+    // Check if we're on HTTPS and update the default server URL if needed
+    if (window.location.protocol === 'https:') {
+        const serverInput = elements.serverUrlInput;
+        if (serverInput && serverInput.value.startsWith('ws:')) {
+            const wssUrl = serverInput.value.replace('ws:', 'wss:');
+            serverInput.value = wssUrl;
+            logMessage('Note: Default server URL changed to WSS (secure WebSocket) because you\'re on an HTTPS page.');
+        }
+    }
+    
     // Log startup message
     logMessage('Uniroad GUI initialized. Please connect to the network.');
 }
@@ -124,8 +134,30 @@ async function handleConnect() {
         // Create Y.js document
         const ydoc = new Y.Doc();
         
-        // Create WebSocket provider
-        const provider = new WebsocketProvider(serverUrl, roomName, ydoc);
+        // Handle HTTPS to WSS protocol conversion
+        let wsServerUrl = serverUrl;
+        
+        // If we're on HTTPS and the server URL is WS (not WSS), show a warning
+        if (window.location.protocol === 'https:' && serverUrl.startsWith('ws:')) {
+            logMessage('Warning: Using insecure WebSocket (ws://) from a secure (https://) page may be blocked by the browser.');
+            logMessage('Consider using a secure WebSocket server (wss://) or hosting this page on HTTP.');
+            
+            // Optional: Ask user if they want to try with secure WebSocket
+            const useWss = confirm(
+                "You're connecting from a secure HTTPS page to an insecure WebSocket (ws://).\n\n" +
+                "This connection will likely be blocked by your browser.\n\n" +
+                "Would you like to try using a secure WebSocket connection (wss://) instead?\n\n" +
+                "Click OK to use wss:// or Cancel to try with the original ws:// URL."
+            );
+            
+            if (useWss) {
+                wsServerUrl = serverUrl.replace('ws:', 'wss:');
+                logMessage(`Attempting connection with secure WebSocket: ${wsServerUrl}`);
+            }
+        }
+        
+        // Create WebSocket provider with the potentially modified URL
+        const provider = new WebsocketProvider(wsServerUrl, roomName, ydoc);
         
         // Create environment handlers for browser
         const environmentHandlers = {

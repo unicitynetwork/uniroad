@@ -46,20 +46,35 @@ A peer-to-peer serverless marketplace based on the Unicity blockchain platform. 
 
 #### Start the WebSocket Server
 
+For local development (HTTP/WS):
 ```
 npm run start-server
 ```
 
-Or with custom parameters:
+For secure connections (HTTPS/WSS) - required when accessed from HTTPS sites like GitHub Pages:
+```
+USE_SSL=true SSL_KEY=./ssl/key.pem SSL_CERT=./ssl/cert.pem npm run start-server
+```
 
+You can specify custom parameters:
 ```
 node y-websocket-server.js [port] [persistence-dir]
 ```
 
-Example:
+Example with custom port and data directory:
 ```
 node y-websocket-server.js 1234 ./data
 ```
+
+#### Generating Self-Signed SSL Certificates for Development
+
+If you need to connect from an HTTPS site to your local server, generate self-signed certificates:
+```
+mkdir -p ssl
+openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout ssl/key.pem -out ssl/cert.pem
+```
+
+Note: You'll need to accept the self-signed certificate in your browser.
 
 #### Using the Web Client
 
