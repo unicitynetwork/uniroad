@@ -102,9 +102,27 @@ const commonEmojis = [
     '📊', '📈', '📉', '📝', '🔒', '⏰', '🏆', '💯'
 ];
 
+// Track initialization to prevent double init
+let appInitialized = false;
+
 // Initialize the application
 function initApp() {
+    // Prevent multiple initializations
+    if (window.__UNITEL_INITIALIZED === true) {
+        console.log('Unitel already initialized, skipping duplicate initialization');
+        return;
+    }
+    window.__UNITEL_INITIALIZED = true;
+    console.log('Unitel initialization - first and only time');
+    
+    // Prevent duplicate initialization
+    if (appInitialized) {
+        console.log('Application already initialized, skipping');
+        return;
+    }
+    
     console.log('Initializing Unitel application...');
+    appInitialized = true;
     
     // Validate critical DOM elements exist
     console.log('Checking DOM elements...');
@@ -116,13 +134,19 @@ function initApp() {
         'secret'
     ];
     
+    let missingElements = false;
     criticalElements.forEach(id => {
         const element = document.getElementById(id);
         console.log(`Element #${id} exists:`, !!element);
         if (!element) {
             console.error(`Critical element #${id} is missing!`);
+            missingElements = true;
         }
     });
+    
+    if (missingElements) {
+        console.error('Missing critical elements - app may not function correctly');
+    }
     
     // Double check the contact input directly
     const contactInput = document.getElementById('new-contact-name');
@@ -256,17 +280,46 @@ function updateUIState(isConnected) {
     }
 }
 
+// Track connection state to prevent duplicate connections
+let connectionInProgress = false;
+
 // Handle connect button click
 async function handleConnect() {
-    const serverUrl = elements.serverUrlInput.value.trim();
-    const roomName = elements.roomNameInput.value.trim();
-    const username = elements.usernameInput.value.trim();
-    const secret = elements.secretInput.value.trim();
+    // Prevent multiple concurrent connection attempts
+    if (connectionInProgress) {
+        console.log('Connection already in progress, ignoring request');
+        return;
+    }
+    
+    // Get fresh DOM references
+    const serverUrlInput = document.getElementById('server-url');
+    const roomNameInput = document.getElementById('room-name');
+    const usernameInput = document.getElementById('username');
+    const secretInput = document.getElementById('secret');
+    const connectBtn = document.getElementById('connect-btn');
+    
+    if (!serverUrlInput || !roomNameInput || !usernameInput || !secretInput) {
+        showModal('Error', 'UI elements not found. Please refresh the page.');
+        return;
+    }
+    
+    const serverUrl = serverUrlInput.value.trim();
+    const roomName = roomNameInput.value.trim();
+    const username = usernameInput.value.trim();
+    const secret = secretInput.value.trim();
     
     if (!serverUrl || !roomName || !username || !secret) {
         showModal('Connection Error', 'All connection fields are required.');
         return;
     }
+    
+    // Disable connect button and show connecting state
+    if (connectBtn) {
+        connectBtn.disabled = true;
+        connectBtn.textContent = 'Connecting...';
+    }
+    
+    connectionInProgress = true;
     
     try {
         addSystemMessage(`Connecting to ${serverUrl} in room ${roomName}...`);
@@ -349,6 +402,17 @@ async function handleConnect() {
         console.error('Connection error:', error);
         addSystemMessage(`Connection failed: ${error.message}`);
         showModal('Connection Error', `Failed to connect: ${error.message}`);
+        
+        // Reset UI on error
+        updateUIState(false);
+    } finally {
+        connectionInProgress = false;
+        
+        // Reset connect button
+        if (connectBtn) {
+            connectBtn.disabled = false;
+            connectBtn.textContent = 'Connect';
+        }
     }
 }
 
@@ -423,16 +487,34 @@ function registerHandlers(unitelDb) {
 
 // Update contacts list UI
 function updateContactsList(contacts) {
-    if (!contacts || contacts.length === 0) {
-        elements.contactsList.innerHTML = '<div class="empty-message">No contacts</div>';
+    // Get the DOM element directly to ensure we have the latest reference
+    const contactsListElement = document.getElementById('contacts-list');
+    if (!contactsListElement) {
+        console.error('Contacts list element not found in DOM');
         return;
     }
     
-    elements.contactsList.innerHTML = '';
+    console.log('Updating contacts list with:', contacts);
     
+    // Handle empty contacts list
+    if (!contacts || !Array.isArray(contacts) || contacts.length === 0) {
+        contactsListElement.innerHTML = '<div class="empty-message">No contacts</div>';
+        return;
+    }
+    
+    // Clear the current list
+    contactsListElement.innerHTML = '';
+    
+    // Add contacts to the list
     contacts.forEach(contact => {
+        if (!contact || !contact.username) {
+            console.warn('Invalid contact object:', contact);
+            return; // Skip invalid contacts
+        }
+        
         const contactElement = document.createElement('div');
         contactElement.className = 'contact-item';
+        contactElement.setAttribute('data-username', contact.username);
         
         if (appState.currentContact === contact.username) {
             contactElement.classList.add('active');
@@ -442,25 +524,52 @@ function updateContactsList(contacts) {
             contactElement.classList.add('calling');
         }
         
-        const statusClass = `status-${contact.status || 'offline'}`;
+        // Default to offline if status is not set
+        const status = contact.status || 'offline';
+        const statusClass = `status-${status}`;
+        
+        // Format last seen or provide default
+        const lastSeen = contact.lastSeen ? formatLastSeen(contact.lastSeen) : 'Unknown';
         
         contactElement.innerHTML = `
             <span class="contact-status ${statusClass}"></span>
             <div class="contact-info">
                 <div class="contact-name">${contact.username}</div>
-                <div class="contact-last-seen">Last seen: ${formatLastSeen(contact.lastSeen)}</div>
+                <div class="contact-last-seen">Last seen: ${lastSeen}</div>
             </div>
         `;
         
-        contactElement.addEventListener('click', () => handleContactSelect(contact.username));
+        // Add click event handler
+        contactElement.addEventListener('click', () => {
+            console.log(`Contact ${contact.username} clicked`);
+            handleContactSelect(contact.username);
+        });
         
-        elements.contactsList.appendChild(contactElement);
+        // Add to DOM
+        contactsListElement.appendChild(contactElement);
     });
     
     // Update call button state based on selected contact's status
     if (appState.currentContact) {
         const selectedContact = contacts.find(c => c.username === appState.currentContact);
-        elements.startCallBtn.disabled = !selectedContact || selectedContact.status !== 'online' || appState.callState.inCall;
+        
+        // Get the button directly from DOM
+        const startCallBtn = document.getElementById('start-call-btn');
+        if (startCallBtn) {
+            const isOnline = selectedContact && selectedContact.status === 'online';
+            startCallBtn.disabled = !isOnline || appState.callState.inCall;
+            
+            // Add visual feedback about why the button is disabled
+            if (startCallBtn.disabled && selectedContact) {
+                startCallBtn.title = appState.callState.inCall 
+                    ? "Already in a call" 
+                    : `Cannot call ${selectedContact.username} (${selectedContact.status})`;
+            } else if (startCallBtn.disabled) {
+                startCallBtn.title = "No contact selected";
+            } else {
+                startCallBtn.title = `Call ${selectedContact.username}`;
+            }
+        }
     }
 }
 
@@ -685,12 +794,19 @@ function handleContactSelect(username) {
 
 // Handle adding a new contact
 function handleAddContact() {
-    // Get the contact name from the input field
-    const contactNameElement = elements.newContactNameInput;
+    // Get the contact name from the input field - always get fresh reference
+    const contactNameElement = document.getElementById('new-contact-name');
+    if (!contactNameElement) {
+        console.error('Contact input element not found in DOM');
+        showModal('Error', 'UI error: Contact input element not found');
+        return;
+    }
+    
     const contactName = contactNameElement.value.trim();
     
     console.log('Add contact button clicked:', {
         inputElement: contactNameElement,
+        elementId: contactNameElement.id,
         rawValue: contactNameElement.value,
         trimmedValue: contactName,
         isEmpty: !contactName
@@ -710,23 +826,65 @@ function handleAddContact() {
         return;
     }
     
+    // Disable the button and show loading state
+    const addContactBtn = document.getElementById('add-contact-btn');
+    if (addContactBtn) {
+        addContactBtn.disabled = true;
+        addContactBtn.textContent = 'Adding...';
+    }
+    
     try {
         // Log before adding
         console.log(`Attempting to add contact: "${contactName}"`);
         
-        // Add the contact
-        appState.unitelDb.addContact(contactName);
+        // Add the contact - this returns true if successful
+        const result = appState.unitelDb.addContact(contactName);
+        console.log(`Contact add result:`, result);
         
-        // Clear the input field
-        elements.newContactNameInput.value = '';
-        
-        // Show success message
-        addSystemMessage(`Contact ${contactName} added successfully`);
-        console.log(`Contact ${contactName} added successfully`);
+        if (result) {
+            // Only clear input and show success if we actually succeeded
+            contactNameElement.value = '';
+            
+            // Show success notification
+            addSystemMessage(`Contact ${contactName} added successfully`);
+            console.log(`Contact ${contactName} added successfully`);
+            
+            // Show visual confirmation for the user
+            showModal('Success', `Contact ${contactName} added successfully`, 'info');
+            
+            // Force explicit update of the contacts list in the UI
+            if (appState.unitelDb) {
+                const contacts = appState.unitelDb.getContactsList();
+                console.log('Updated contacts list:', contacts);
+                updateContactsList(contacts);
+            }
+        } else {
+            // This shouldn't happen, but just in case
+            console.error('Contact add returned false or undefined');
+            addSystemMessage('Failed to add contact due to unknown error');
+            showModal('Error', 'Failed to add contact due to unknown error');
+        }
     } catch (error) {
+        // Log the full error object for debugging
         console.error('Error adding contact:', error);
-        addSystemMessage(`Failed to add contact: ${error.message}`);
-        showModal('Error', `Failed to add contact: ${error.message}`);
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+        
+        // Only show error modal if it's a genuine error, not "already exists"
+        if (error.message.includes('already exists')) {
+            addSystemMessage(`Note: Contact ${contactName} already exists in your list`);
+            showModal('Note', `Contact ${contactName} already exists in your list`, 'info');
+        } else {
+            addSystemMessage(`Failed to add contact: ${error.message}`);
+            showModal('Error', `Failed to add contact: ${error.message}`);
+        }
+    } finally {
+        // Re-enable the button
+        if (addContactBtn) {
+            addContactBtn.disabled = false;
+            addContactBtn.textContent = 'Add Contact';
+        }
     }
 }
 
@@ -1448,34 +1606,61 @@ function initEmojiPicker() {
 
 // Show modal dialog
 function showModal(title, message, type = 'info') {
-    elements.modalTitle.textContent = title;
-    elements.modalMessage.textContent = message;
-    elements.modalMessage.style.display = 'block';
-    elements.emojiPicker.style.display = 'none';
-    elements.tokenPicker.style.display = 'none';
-    elements.imageViewer.style.display = 'none';
+    // Get fresh references to modal elements
+    const modalElement = document.getElementById('modal');
+    const modalTitleElement = document.getElementById('modal-title');
+    const modalMessageElement = document.getElementById('modal-message');
+    const modalConfirmBtn = document.getElementById('modal-confirm');
+    const modalCancelBtn = document.getElementById('modal-cancel');
+    const emojiPicker = document.getElementById('emoji-picker');
+    const tokenPicker = document.getElementById('token-picker');
+    const imageViewer = document.getElementById('image-viewer');
     
-    // Configure modal based on type
-    if (type === 'error') {
-        elements.modalConfirmBtn.style.display = 'none';
-        elements.modalCancelBtn.textContent = 'Close';
-    } else if (type === 'confirm') {
-        elements.modalConfirmBtn.style.display = 'inline-block';
-        elements.modalCancelBtn.textContent = 'Cancel';
-    } else { // info
-        elements.modalConfirmBtn.style.display = 'none';
-        elements.modalCancelBtn.textContent = 'OK';
+    if (!modalElement || !modalTitleElement || !modalMessageElement) {
+        console.error('Modal elements not found in DOM');
+        alert(`${title}: ${message}`); // Fallback to alert if modal not available
+        return;
     }
     
-    elements.modal.style.display = 'block';
+    modalTitleElement.textContent = title;
+    modalMessageElement.textContent = message;
+    modalMessageElement.style.display = 'block';
+    
+    if (emojiPicker) emojiPicker.style.display = 'none';
+    if (tokenPicker) tokenPicker.style.display = 'none';
+    if (imageViewer) imageViewer.style.display = 'none';
+    
+    // Configure modal based on type
+    if (modalConfirmBtn && modalCancelBtn) {
+        if (type === 'error') {
+            modalConfirmBtn.style.display = 'none';
+            modalCancelBtn.textContent = 'Close';
+        } else if (type === 'confirm') {
+            modalConfirmBtn.style.display = 'inline-block';
+            modalCancelBtn.textContent = 'Cancel';
+        } else { // info
+            modalConfirmBtn.style.display = 'none';
+            modalCancelBtn.textContent = 'OK';
+        }
+    }
+    
+    modalElement.style.display = 'block';
 }
 
 // Close modal dialog
 function closeModal() {
-    elements.modal.style.display = 'none';
+    // Get fresh reference to modal and file input
+    const modalElement = document.getElementById('modal');
+    const fileInputElement = document.getElementById('file-input');
     
-    // Reset file input
-    elements.fileInput.value = '';
+    if (modalElement) {
+        modalElement.style.display = 'none';
+    }
+    
+    // Reset file input if it exists
+    if (fileInputElement) {
+        fileInputElement.value = '';
+    }
     
     // If closing modal cancels a pending action
     appState.pendingAction = null;
@@ -1485,6 +1670,7 @@ function closeModal() {
 function handleModalConfirm() {
     // Handle any pending actions
     if (appState.pendingAction) {
+        console.log('Processing pending action:', appState.pendingAction.type);
         switch (appState.pendingAction.type) {
             // Add cases for confirm actions here
         }
@@ -1509,8 +1695,17 @@ function escapeHtml(unsafe) {
 window.showFullImage = showFullImage;
 window.downloadFile = downloadFile;
 
-// Initialize the application when DOM is loaded
-document.addEventListener('DOMContentLoaded', initApp);
+// Initialize the application when DOM is loaded - with safeguards
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded - initializing Unitel');
+        setTimeout(initApp, 100); // Slight delay to ensure DOM is fully ready
+    });
+} else {
+    // DOM already loaded, initialize directly with delay
+    console.log('DOM already loaded - initializing Unitel with delay');
+    setTimeout(initApp, 100);
+}
 
 // Export functions for webpack
 module.exports = {

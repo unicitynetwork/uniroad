@@ -25,29 +25,52 @@ class UnitelDB {
         };
         this.contactPollInterval = null;
         
-        // Use unique collection names based on the user's name only
-        // The nametag token ID will be used once it's created during initialization
-        // We don't need the nametag token ID immediately since a user's contacts are empty at first login
-        const contactListName = `contacts_for_user_${this.name}`;
-        const inventoryName = `inventory_for_user_${this.name}`;
-        const recipientName = `recipient_for_user_${this.name}`;
+        // Make names more unique to prevent collisions
+        // Use a combination of username and a hash of the pubkey
+        const pubkeyHash = this.pubkey.slice(-8); // Use last 8 chars of pubkey for uniqueness
+        const contactListName = `contacts_for_user_${this.name}_${pubkeyHash}`;
+        const inventoryName = `inventory_for_user_${this.name}_${pubkeyHash}`;
+        const recipientName = `recipient_for_user_${this.name}_${pubkeyHash}`;
         
-        // Create shared and user-specific collections
-        this.unitel = {
-            // Shared between all users
-            users: this.ydoc.getMap('users'),
+        this.environmentHandlers.log(`Initializing user-specific collections for: ${this.name} (${pubkeyHash})`);
+        
+        try {
+            // Create shared and user-specific collections with verification
+            this.unitel = {
+                // Shared between all users
+                users: this.ydoc.getMap('users')
+            };
             
-            // User-specific data with cryptographically unique identifiers
-            contacts: this.ydoc.getMap(contactListName),
-            inventory: this.ydoc.getMap(inventoryName),
-            recipient: this.ydoc.getMap(recipientName)
-        };
-        
-        // Log the maps we're using for debugging
-        this.environmentHandlers.log(`User-specific collections for: ${this.name}`);
-        this.environmentHandlers.log(`Contact list: ${contactListName}`);
-        this.environmentHandlers.log(`Inventory: ${inventoryName}`);
-        this.environmentHandlers.log(`Recipient inbox: ${recipientName}`);
+            // Create and verify each map separately for better error handling
+            this.unitel.contacts = this.ydoc.getMap(contactListName);
+            this.environmentHandlers.log(`Contact list map created: ${contactListName}, valid: ${!!this.unitel.contacts}`);
+            
+            this.unitel.inventory = this.ydoc.getMap(inventoryName);
+            this.environmentHandlers.log(`Inventory map created: ${inventoryName}, valid: ${!!this.unitel.inventory}`);
+            
+            this.unitel.recipient = this.ydoc.getMap(recipientName);
+            this.environmentHandlers.log(`Recipient inbox map created: ${recipientName}, valid: ${!!this.unitel.recipient}`);
+            
+            // Verify all maps are properly initialized
+            const allMapsValid = 
+                !!this.unitel.users && 
+                !!this.unitel.contacts && 
+                !!this.unitel.inventory && 
+                !!this.unitel.recipient;
+                
+            if (!allMapsValid) {
+                this.environmentHandlers.log(`ERROR: One or more Y.js maps failed to initialize properly!`);
+                // We'll continue anyway and try to recover
+            }
+            
+            // Log the collections for debugging
+            this.environmentHandlers.log(`Contact list: ${contactListName} (size: ${this.unitel.contacts.size})`);
+            this.environmentHandlers.log(`Inventory: ${inventoryName} (size: ${this.unitel.inventory.size})`);
+            this.environmentHandlers.log(`Recipient inbox: ${recipientName} (size: ${this.unitel.recipient.size})`);
+        } catch (error) {
+            this.environmentHandlers.log(`Error initializing Y.js collections: ${error.message}`);
+            throw new Error(`Failed to initialize collections: ${error.message}`);
+        }
 
         // Store the provider
         this.provider = provider;
@@ -317,17 +340,43 @@ class UnitelDB {
     getContactsList = () => {
         const contacts = [];
         
+        if (!this.unitel || !this.unitel.contacts) {
+            this.environmentHandlers.log('Error: Contacts map not properly initialized');
+            return contacts; // Return empty array rather than causing an error
+        }
+        
         // Log map size and key for debugging
         const mapSize = this.unitel.contacts.size;
-        this.environmentHandlers.log(`Retrieving contacts from map contacts_${this.pubkey} (size: ${mapSize})`);
+        const contactsMapName = this.unitel.contacts._map ? this.unitel.contacts._map.name : 'unknown';
+        this.environmentHandlers.log(`Retrieving contacts from map ${contactsMapName} (size: ${mapSize})`);
         
-        // Get all contacts from the user-specific map
-        this.unitel.contacts.forEach((contact, key) => {
-            this.environmentHandlers.log(`Found contact: ${key} -> ${contact.username}`);
-            contacts.push(contact);
-        });
-        
-        return contacts;
+        try {
+            // Get all contacts from the user-specific map
+            this.unitel.contacts.forEach((contact, key) => {
+                if (!contact || !contact.username) {
+                    this.environmentHandlers.log(`Found invalid contact at key ${key}: ${JSON.stringify(contact)}`);
+                    return; // Skip invalid entries
+                }
+                
+                this.environmentHandlers.log(`Found contact: ${key} -> ${contact.username}`);
+                
+                // Ensure all required properties exist
+                const validatedContact = {
+                    username: contact.username,
+                    status: contact.status || 'unknown',
+                    added: contact.added || new Date().toISOString(),
+                    lastSeen: contact.lastSeen || new Date().toISOString()
+                };
+                
+                contacts.push(validatedContact);
+            });
+            
+            this.environmentHandlers.log(`Retrieved ${contacts.length} contacts`);
+            return contacts;
+        } catch (error) {
+            this.environmentHandlers.log(`Error retrieving contacts: ${error.message}`);
+            return []; // Return empty array on error
+        }
     }
 
     getInventoryList = async () => {
@@ -511,34 +560,90 @@ class UnitelDB {
 
     // Contact management
     addContact = (username) => {
+        this.environmentHandlers.log(`addContact called with username: "${username}"`);
+        
+        // Validate username
         if (!username) {
-            throw new Error('Username is required');
+            this.environmentHandlers.log(`Username is empty or null`);
+            throw new Error('Contact name is required');
         }
         
+        // Ensure contacts map is properly initialized
+        if (!this.unitel.contacts) {
+            this.environmentHandlers.log(`Contacts map is not properly initialized`);
+            throw new Error('Internal error: Contact list not initialized');
+        }
+        
+        // Get contact ID and log current contacts map
         const contactId = contactKey(username);
-        this.environmentHandlers.log(`Adding contact ${username} with key ${contactId} to contacts_${this.pubkey}`);
         
-        // Check if contact already exists
-        if (this.unitel.contacts.has(contactId)) {
-            this.environmentHandlers.log(`Contact ${username} already exists in user's contact list`);
-            throw new Error(`Contact ${username} already exists`);
+        try {
+            const contactsMapName = this.unitel.contacts._map ? this.unitel.contacts._map.name : 'unknown';
+            this.environmentHandlers.log(`Adding contact ${username} with key ${contactId} to ${contactsMapName}`);
+            this.environmentHandlers.log(`Current contacts map size: ${this.unitel.contacts.size}`);
+            
+            // Check if contact already exists
+            if (this.unitel.contacts.has(contactId)) {
+                this.environmentHandlers.log(`Contact ${username} already exists in user's contact list`);
+                throw new Error(`Contact ${username} already exists`);
+            }
+            
+            // Create contact object with all required fields
+            const contactObj = {
+                username,
+                status: 'unknown', // Will be updated on next polling cycle
+                added: new Date().toISOString(),
+                lastSeen: new Date().toISOString() // Initialize with current time
+            };
+            
+            // Add contact to Y.js map with defensive retry
+            let retryCount = 0;
+            let contactExists = false;
+            
+            // Try up to 3 times to ensure the contact is added
+            while (!contactExists && retryCount < 3) {
+                this.environmentHandlers.log(`Setting contact in Y.js map (attempt ${retryCount + 1})`);
+                
+                // Add the contact to the map
+                this.unitel.contacts.set(contactId, contactObj);
+                
+                // Small delay to allow for Y.js synchronization
+                // Use an immediate check instead of setTimeout to avoid async complexity
+                contactExists = this.unitel.contacts.has(contactId);
+                
+                if (!contactExists) {
+                    retryCount++;
+                    this.environmentHandlers.log(`Contact not added, retrying... (attempt ${retryCount})`);
+                    // Small delay before retry
+                    const startTime = Date.now();
+                    while (Date.now() - startTime < 100) { /* Busy wait */ }
+                }
+            }
+            
+            // Final verification
+            contactExists = this.unitel.contacts.has(contactId);
+            this.environmentHandlers.log(`Contact ${username} added successfully, verified: ${contactExists}`);
+            this.environmentHandlers.log(`New contacts map size: ${this.unitel.contacts.size}`);
+            
+            if (!contactExists) {
+                this.environmentHandlers.log(`Failed to add contact after ${retryCount} attempts`);
+                throw new Error(`Failed to add contact after multiple attempts`);
+            }
+            
+            // Force update of UI
+            if (this.contactsViewer) {
+                this.environmentHandlers.log(`Updating contacts UI after adding ${username}`);
+                this.contactsViewer(this.getContactsList.bind(this));
+            }
+            
+            return true;
+        } catch (error) {
+            // Log error details
+            this.environmentHandlers.log(`Error adding contact: ${error.message}`);
+            
+            // Re-throw the error
+            throw error;
         }
-        
-        // Add contact with default status
-        this.unitel.contacts.set(contactId, {
-            username,
-            status: 'unknown', // Will be updated on next polling cycle
-            added: new Date().toISOString()
-        });
-        
-        this.environmentHandlers.log(`Contact ${username} added successfully`);
-        
-        // Force update of UI
-        if (this.contactsViewer) {
-            this.contactsViewer(this.getContactsList.bind(this));
-        }
-        
-        return true;
     }
 
     removeContact = (username) => {

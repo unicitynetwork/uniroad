@@ -149,7 +149,11 @@
     <!-- File input for attachments (hidden) -->
     <input type="file" id="file-input" style="display: none;">
 
-    <!-- Include bundled script -->
+    <!-- Include bundled script with one-time initialization -->
+    <script>
+    // Use a single initialization flag in the global scope
+    window.__UNITEL_INITIALIZED = false;
+    </script>
     <script src="unitel-bundle.js"></script>
 </body>
 </html>
