@@ -25,13 +25,19 @@ class UnitelDB {
         };
         this.contactPollInterval = null;
         
-        // Create shared collections
+        // Create shared and user-specific collections
         this.unitel = {
+            // Shared between all users
             users: this.ydoc.getMap('users'),
+            
+            // User-specific data (using pubkey to ensure uniqueness)
             contacts: this.ydoc.getMap(`contacts_${this.pubkey}`),
             inventory: this.ydoc.getMap(`inventory_${this.pubkey}`),
             recipient: this.ydoc.getMap(`recipient_${this.name}`)
         };
+        
+        // Log the maps we're using for debugging
+        this.environmentHandlers.log(`Using user-specific maps: contacts_${this.pubkey}, inventory_${this.pubkey}, recipient_${this.name}`);
 
         // Store the provider
         this.provider = provider;
@@ -300,9 +306,17 @@ class UnitelDB {
 
     getContactsList = () => {
         const contacts = [];
+        
+        // Log map size and key for debugging
+        const mapSize = this.unitel.contacts.size;
+        this.environmentHandlers.log(`Retrieving contacts from map contacts_${this.pubkey} (size: ${mapSize})`);
+        
+        // Get all contacts from the user-specific map
         this.unitel.contacts.forEach((contact, key) => {
+            this.environmentHandlers.log(`Found contact: ${key} -> ${contact.username}`);
             contacts.push(contact);
         });
+        
         return contacts;
     }
 
@@ -491,17 +505,28 @@ class UnitelDB {
             throw new Error('Username is required');
         }
         
+        const contactId = contactKey(username);
+        this.environmentHandlers.log(`Adding contact ${username} with key ${contactId} to contacts_${this.pubkey}`);
+        
         // Check if contact already exists
-        if (this.unitel.contacts.has(contactKey(username))) {
+        if (this.unitel.contacts.has(contactId)) {
+            this.environmentHandlers.log(`Contact ${username} already exists in user's contact list`);
             throw new Error(`Contact ${username} already exists`);
         }
         
         // Add contact with default status
-        this.unitel.contacts.set(contactKey(username), {
+        this.unitel.contacts.set(contactId, {
             username,
             status: 'unknown', // Will be updated on next polling cycle
             added: new Date().toISOString()
         });
+        
+        this.environmentHandlers.log(`Contact ${username} added successfully`);
+        
+        // Force update of UI
+        if (this.contactsViewer) {
+            this.contactsViewer(this.getContactsList.bind(this));
+        }
         
         return true;
     }
@@ -511,8 +536,18 @@ class UnitelDB {
             throw new Error('Username is required');
         }
         
+        const contactId = contactKey(username);
+        this.environmentHandlers.log(`Removing contact ${username} with key ${contactId} from contacts_${this.pubkey}`);
+        
         // Remove contact
-        this.unitel.contacts.delete(contactKey(username));
+        this.unitel.contacts.delete(contactId);
+        
+        this.environmentHandlers.log(`Contact ${username} removed successfully`);
+        
+        // Force update of UI
+        if (this.contactsViewer) {
+            this.contactsViewer(this.getContactsList.bind(this));
+        }
         
         return true;
     }
