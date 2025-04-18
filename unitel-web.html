@@ -20,6 +20,7 @@
             <div class="user-details">
                 <div>Username: <span id="username-display">Not connected</span></div>
                 <div>Public Key: <span id="pubkey-display">-</span></div>
+                <div>Privacy: <span id="privacy-display">Contacts Only</span></div>
             </div>
             <div class="token-count">
                 <div>Tokens: <span id="token-count-display">0</span></div>
@@ -97,6 +98,13 @@
                 <div class="form-group">
                     <input type="text" id="new-contact-name" placeholder="Contact username">
                     <button id="add-contact-btn" class="action-btn">Add Contact</button>
+                </div>
+                <div class="form-group privacy-settings">
+                    <label for="privacy-setting">Status Privacy:</label>
+                    <select id="privacy-setting">
+                        <option value="contacts_only" selected>Contacts Only</option>
+                        <option value="everyone">Everyone</option>
+                    </select>
                 </div>
             </div>
             <div class="user-inventory">

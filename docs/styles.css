@@ -374,6 +374,13 @@ h1 {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
+    margin-bottom: 10px;
+}
+
+.privacy-settings {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border-color);
 }
 
 .primary-btn {

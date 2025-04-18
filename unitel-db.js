@@ -78,15 +78,21 @@ class UnitelDB {
         // Set up awareness if available
         if (this.provider.awareness) {
             this.awareness = this.provider.awareness;
+            
+            // Set initial state
             this.awareness.setLocalState({
                 user: {
                     name: this.name,
                     pubkey: this.pubkey,
                     online: true,
                     lastSeen: new Date().toISOString(),
-                    status: 'online' // 'online', 'offline', 'idle'
+                    status: 'online', // 'online', 'offline', 'idle'
+                    showStatusTo: 'contacts_only' // privacy setting: 'contacts_only' or 'everyone'
                 }
             });
+            
+            // Override the awareness API to implement privacy
+            this._setupAwarenessPrivacy();
         }
 
         // Initialize the system
@@ -199,6 +205,71 @@ class UnitelDB {
         this.environmentHandlers.registerCleanup(cleanup);
     }
 
+    _setupAwarenessPrivacy = () => {
+        if (!this.awareness) return;
+        
+        // Save original getStates method to use in our override
+        const originalGetStates = this.awareness.getStates;
+        
+        // Override getStates to filter based on contacts
+        this.awareness.getStates = () => {
+            // Get original unfiltered states
+            const allStates = originalGetStates.call(this.awareness);
+            
+            // Create a filtered Map
+            const filteredStates = new Map();
+            
+            // Get my contacts list for filtering
+            const myContacts = this.getContactsList().map(contact => contact.username);
+            this.environmentHandlers.log(`Filtering awareness with contacts: ${myContacts.join(', ')}`);
+            
+            // Add my own state
+            const myClientId = this.awareness.clientID;
+            if (allStates.has(myClientId)) {
+                filteredStates.set(myClientId, allStates.get(myClientId));
+            }
+            
+            // Process each state in the original map
+            allStates.forEach((state, clientId) => {
+                // Skip myself (already added)
+                if (clientId === myClientId) return;
+                
+                // Check if we should include this state
+                if (state.user) {
+                    const userName = state.user.name;
+                    const privacySetting = state.user.showStatusTo || 'contacts_only';
+                    
+                    // Always include users who set privacy to 'everyone'
+                    if (privacySetting === 'everyone') {
+                        filteredStates.set(clientId, state);
+                        return;
+                    }
+                    
+                    // For 'contacts_only', check if the user is in my contacts
+                    if (privacySetting === 'contacts_only' && myContacts.includes(userName)) {
+                        filteredStates.set(clientId, state);
+                        return;
+                    }
+                    
+                    // If we get here, the user wants to restrict awareness and isn't in my contacts
+                    // Create a limited state with just the username but mark as offline
+                    filteredStates.set(clientId, {
+                        user: {
+                            name: userName,
+                            status: 'offline',
+                            lastSeen: state.user.lastSeen || new Date().toISOString(),
+                            showStatusTo: 'contacts_only'
+                        }
+                    });
+                }
+            });
+            
+            return filteredStates;
+        };
+        
+        this.environmentHandlers.log('Awareness privacy filter installed');
+    }
+    
     _setupIdleDetection = () => {
         // If in browser environment, set up idle detection
         if (typeof window !== 'undefined') {

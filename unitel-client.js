@@ -11,6 +11,7 @@ const elements = {
     statusText: document.getElementById('status-text'),
     usernameDisplay: document.getElementById('username-display'),
     pubkeyDisplay: document.getElementById('pubkey-display'),
+    privacyDisplay: document.getElementById('privacy-display'),
     tokenCountDisplay: document.getElementById('token-count-display'),
     contactsList: document.getElementById('contacts-list'),
     chatHeader: document.getElementById('chat-header'),
@@ -34,6 +35,7 @@ const elements = {
     secretInput: document.getElementById('secret'),
     contactSearchInput: document.getElementById('contact-search'),
     newContactNameInput: document.getElementById('new-contact-name'),
+    privacySetting: document.getElementById('privacy-setting'),
     messageInput: document.getElementById('message-input'),
     audioInput: document.getElementById('audio-input'),
     videoInput: document.getElementById('video-input'),
@@ -196,6 +198,11 @@ function setupEventListeners() {
     elements.addContactBtn.addEventListener('click', handleAddContact);
     elements.contactSearchInput.addEventListener('input', handleContactSearch);
     
+    // Privacy settings
+    if (elements.privacySetting) {
+        elements.privacySetting.addEventListener('change', handlePrivacyChange);
+    }
+    
     // Chat controls
     elements.sendMessageBtn.addEventListener('click', handleSendMessage);
     elements.messageInput.addEventListener('keypress', (e) => {
@@ -266,10 +273,16 @@ function updateUIState(isConnected) {
     
     elements.testMediaBtn.disabled = disableState;
     
+    // Privacy settings
+    if (elements.privacySetting) {
+        elements.privacySetting.disabled = disableState;
+    }
+    
     // Reset state if disconnected
     if (!isConnected) {
         elements.usernameDisplay.textContent = 'Not connected';
         elements.pubkeyDisplay.textContent = '-';
+        elements.privacyDisplay.textContent = 'Contacts Only';
         elements.tokenCountDisplay.textContent = '0';
         elements.contactsList.innerHTML = '<div class="empty-message">No contacts</div>';
         elements.chatMessages.innerHTML = '<div class="empty-message">Select a contact to start chatting</div>';
@@ -391,6 +404,15 @@ async function handleConnect() {
         elements.usernameDisplay.textContent = username;
         elements.pubkeyDisplay.textContent = unitelDb.pubkey;
         
+        // Initialize privacy display
+        const privacySetting = unitelDb.awareness.getLocalState().user.showStatusTo;
+        elements.privacyDisplay.textContent = privacySetting === 'everyone' ? 'Everyone' : 'Contacts Only';
+        
+        // Set privacy dropdown to match
+        if (elements.privacySetting) {
+            elements.privacySetting.value = privacySetting || 'contacts_only';
+        }
+        
         // Set up data observers
         setupDataObservers(unitelDb);
         
@@ -413,6 +435,38 @@ async function handleConnect() {
             connectBtn.disabled = false;
             connectBtn.textContent = 'Connect';
         }
+    }
+}
+
+// Handle privacy setting change
+function handlePrivacyChange() {
+    if (!appState.connected || !appState.unitelDb || !appState.unitelDb.awareness) {
+        console.log('Cannot change privacy settings while disconnected');
+        return;
+    }
+    
+    const privacySetting = elements.privacySetting.value;
+    console.log(`Changing privacy setting to: ${privacySetting}`);
+    
+    try {
+        // Get current user state
+        const currentState = appState.unitelDb.awareness.getLocalState();
+        
+        // Update the privacy setting
+        appState.unitelDb.awareness.setLocalState({
+            user: {
+                ...currentState.user,
+                showStatusTo: privacySetting
+            }
+        });
+        
+        // Update the UI
+        elements.privacyDisplay.textContent = privacySetting === 'everyone' ? 'Everyone' : 'Contacts Only';
+        
+        addSystemMessage(`Privacy setting updated: ${privacySetting === 'everyone' ? 'Everyone' : 'Contacts Only'}`);
+    } catch (error) {
+        console.error('Error changing privacy setting:', error);
+        showModal('Error', `Failed to update privacy setting: ${error.message}`);
     }
 }
 
