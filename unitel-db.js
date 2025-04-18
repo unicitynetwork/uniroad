@@ -250,17 +250,51 @@ class UnitelDB {
     }
 
     async initUserName() {
-        // Create nametag if it doesn't exist yet
-        if (!this.unitel.inventory.has(nametagKey(this.name))) {
-            const token_data = `{"dest_ref": "${this.pubkey}"}`;
-            const nametag = await this.TXF.createNametag(this.name, token_data, this.secret, this.transport);
+        // Check for existing nametag in the inventory
+        const nametagId = nametagKey(this.name);
+        
+        try {
+            // Create nametag if it doesn't exist yet
+            if (!this.unitel.inventory.has(nametagId)) {
+                // Check if user mapping already exists (another instance may have created it)
+                const existingUser = this.unitel.users.get('username_' + this.name);
+                if (existingUser) {
+                    this.environmentHandlers.log(`User ${this.name} already registered, skipping nametag creation`);
+                    return;
+                }
+                
+                // Add a small delay to prevent race conditions between instances
+                await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 300));
+                
+                // Check again after delay (in case another instance created it)
+                if (this.unitel.inventory.has(nametagId) || 
+                    this.unitel.users.get('username_' + this.name)) {
+                    this.environmentHandlers.log(`User ${this.name} was registered during delay, skipping nametag creation`);
+                    return;
+                }
+                
+                const token_data = `{"dest_ref": "${this.pubkey}"}`;
+                const nametag = await this.TXF.createNametag(this.name, token_data, this.secret, this.transport);
 
-            // Store nametag in user's inventory
-            this.unitel.inventory.set(nametagKey(this.name), JSON.parse(this.TXF.exportFlow(nametag)));
-            
-            // Register user mapping
-            this.unitel.users.set('username_' + this.name, { pubkey: this.pubkey });
-            this.unitel.users.set('pubkey_' + this.pubkey, { username: this.name });
+                // Store nametag in user's inventory
+                this.unitel.inventory.set(nametagId, JSON.parse(this.TXF.exportFlow(nametag)));
+                
+                // Register user mapping
+                this.unitel.users.set('username_' + this.name, { pubkey: this.pubkey });
+                this.unitel.users.set('pubkey_' + this.pubkey, { username: this.name });
+                
+                this.environmentHandlers.log(`User ${this.name} initialized with nametag`);
+            } else {
+                this.environmentHandlers.log(`User ${this.name} already has a nametag`);
+            }
+        } catch (error) {
+            // If error relates to duplicate requests, simply log it but don't propagate
+            if (error.message.includes('already exists')) {
+                this.environmentHandlers.log(`Nametag creation skipped: ${error.message}`);
+            } else {
+                // For other errors, propagate them
+                throw error;
+            }
         }
     }
 
