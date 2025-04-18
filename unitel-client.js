@@ -104,6 +104,36 @@ const commonEmojis = [
 
 // Initialize the application
 function initApp() {
+    console.log('Initializing Unitel application...');
+    
+    // Validate critical DOM elements exist
+    console.log('Checking DOM elements...');
+    const criticalElements = [
+        'new-contact-name', 
+        'add-contact-btn',
+        'connect-btn', 
+        'username', 
+        'secret'
+    ];
+    
+    criticalElements.forEach(id => {
+        const element = document.getElementById(id);
+        console.log(`Element #${id} exists:`, !!element);
+        if (!element) {
+            console.error(`Critical element #${id} is missing!`);
+        }
+    });
+    
+    // Double check the contact input directly
+    const contactInput = document.getElementById('new-contact-name');
+    console.log('Contact input element:', contactInput);
+    console.log('Contact input properties:', contactInput ? {
+        id: contactInput.id,
+        type: contactInput.type,
+        value: contactInput.value,
+        placeholder: contactInput.placeholder
+    } : 'NULL');
+    
     // Set up event listeners
     setupEventListeners();
     

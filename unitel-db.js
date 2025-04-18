@@ -25,24 +25,31 @@ class UnitelDB {
         };
         this.contactPollInterval = null;
         
-        // Create a more distinct name for contact list collection
-        const contactListName = `user_contacts_list_${this.pubkey}`;
+        // Use cryptographic hashing to create a truly unique identifier for this user
+        // This ensures that contact lists are not shared between users
+        const userUniqueId = this.TXF.sha256(this.name + this.secret).substring(0, 16);
+        
+        // Create explicit unique names for all user-specific collections
+        const contactListName = `contacts_for_${this.name}_${userUniqueId}`;
+        const inventoryName = `inventory_for_${this.name}_${userUniqueId}`;
+        const recipientName = `recipient_for_${this.name}_${userUniqueId}`;
         
         // Create shared and user-specific collections
         this.unitel = {
             // Shared between all users
             users: this.ydoc.getMap('users'),
             
-            // User-specific data (using pubkey to ensure uniqueness)
+            // User-specific data with cryptographically unique identifiers
             contacts: this.ydoc.getMap(contactListName),
-            inventory: this.ydoc.getMap(`inventory_${this.pubkey}`),
-            recipient: this.ydoc.getMap(`recipient_${this.name}`)
+            inventory: this.ydoc.getMap(inventoryName),
+            recipient: this.ydoc.getMap(recipientName)
         };
         
         // Log the maps we're using for debugging
-        this.environmentHandlers.log(`Using user-specific contact list: ${contactListName}`);
-        this.environmentHandlers.log(`Using user-specific inventory: inventory_${this.pubkey}`);
-        this.environmentHandlers.log(`Using user-specific recipient inbox: recipient_${this.name}`);
+        this.environmentHandlers.log(`Using cryptographically unique ID: ${userUniqueId} for ${this.name}`);
+        this.environmentHandlers.log(`Contact list: ${contactListName}`);
+        this.environmentHandlers.log(`Inventory: ${inventoryName}`);
+        this.environmentHandlers.log(`Recipient inbox: ${recipientName}`);
 
         // Store the provider
         this.provider = provider;
