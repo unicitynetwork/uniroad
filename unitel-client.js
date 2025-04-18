@@ -655,20 +655,48 @@ function handleContactSelect(username) {
 
 // Handle adding a new contact
 function handleAddContact() {
-    const contactName = elements.newContactNameInput.value.trim();
+    // Get the contact name from the input field
+    const contactNameElement = elements.newContactNameInput;
+    const contactName = contactNameElement.value.trim();
     
+    console.log('Add contact button clicked:', {
+        inputElement: contactNameElement,
+        rawValue: contactNameElement.value,
+        trimmedValue: contactName,
+        isEmpty: !contactName
+    });
+    
+    // Validate the contact name
     if (!contactName) {
+        console.error('Contact name is empty after trimming');
         showModal('Error', 'Contact name is required');
         return;
     }
     
+    // Make sure we're connected and DB is initialized
+    if (!appState.connected || !appState.unitelDb) {
+        console.error('Not connected or DB not initialized');
+        showModal('Error', 'Please connect first');
+        return;
+    }
+    
     try {
+        // Log before adding
+        console.log(`Attempting to add contact: "${contactName}"`);
+        
+        // Add the contact
         appState.unitelDb.addContact(contactName);
+        
+        // Clear the input field
         elements.newContactNameInput.value = '';
-        addSystemMessage(`Contact ${contactName} added`);
+        
+        // Show success message
+        addSystemMessage(`Contact ${contactName} added successfully`);
+        console.log(`Contact ${contactName} added successfully`);
     } catch (error) {
         console.error('Error adding contact:', error);
-        showModal('Error', error.message);
+        addSystemMessage(`Failed to add contact: ${error.message}`);
+        showModal('Error', `Failed to add contact: ${error.message}`);
     }
 }
 
