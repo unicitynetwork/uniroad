@@ -1,1 +1,80 @@
-I am building a p2p serverless marketplace (called Uniroad) based on our own innovative Unicity blockchain platform. This platform allows a user to create and list his/her items for trading at the common shared marketlist, allows for a user to purchase an item from the marketlist into the user own inventory and mint coins into own user inventory that are being used for the payments. This marketplace is being executed by a p2p network of agents, where agents syncs the market with each other through p2p and perform trading on the users' behalf. So, when a user wants to purchase an item listed at the marketplace, the agent instance acting on the item owner behalf executes the respective transaction (accept the coin as the payment and send to the buyer the item). Items are represented by NFTs (fully self-contained stand-alone JSON objects) and coins represented as JSON stand-alone objects with the value and respective cryptographic proofs. Our library @unicitylabs/tx-flow-engine implements all the JSON-based token transaction and verification logic, CRDT for market database is done with YJS. uniroad-db.js implements all the market logic and is platform-agnostic (node or browser environment), while node-client.js is CLI agent implementation for node environment. I need you to analyze these JS files and produce for me a browser-based implementation of the market agent with the GUI layout as suggested in the "Uniroad gui layout.pdf" with same functions as node-client.js. This should be a simple standalone HTML page (no React or other frameworks) and instructions to generate fully self-contained minified JS file that is to be used with the webpage. We can use webpack for these purposes. Thanks!
+# Unitel - P2P Encrypted Messenger Technical Task Document
+
+## Overview
+Unitel is a P2P encrypted messenger application that supports text chat, file sharing, token transfers, and video calls. The application leverages Y.js for data synchronization and WebRTC for direct P2P communication.
+
+## Core Features
+1. **User Authentication**
+   - Login with username/password
+   - Create nametag token if not exists (similar to Uniroad)
+
+2. **Contact Management**
+   - Store contacts in Y.js
+   - Add/remove contacts
+   - Search contacts by name
+   - Display contact status (online/offline/idle)
+   - Periodic polling of contact status
+
+3. **Encrypted Text Chat**
+   - P2P encrypted messages via Y.js
+   - Support for text, emojis, images, files, and tokens
+   - Render images inline with expandable view
+   - Maintain separate chat history per contact
+   - Log call events and other system notifications
+
+4. **Token Management**
+   - View and transfer tokens from inventory
+   - Import received tokens using secret
+   - Store tokens in Y.js or local filesystem
+
+5. **Video/Audio Calls**
+   - Direct P2P connection using WebRTC
+   - NAT traversal for direct communication
+   - Audio/video device selection and testing
+   - Call status indicators (calling, connected)
+   - Accept/decline incoming calls
+
+## Implementation Plan
+1. **Setup & Structure**
+   - Fork from Uniroad codebase
+   - Adapt existing Y.js implementation
+   - Setup WebRTC for calls
+
+2. **User Interface Components**
+   - Left panel: Contact list with status indicators
+   - Center: Chat window with message history
+   - Right panel: Video call window and device settings/Token inventory
+   - Bottom: Message input with attachments and emoji support
+
+3. **Communication Architecture**
+   - Y.js documents for persistent data and synchronization
+   - WebRTC for direct media streams
+   - Encryption for all communications
+   - NAT traversal for direct P2P connections
+
+4. **Data Management**
+   - Chat history persistence
+   - Token storage and transfer
+   - Contact list synchronization
+   - User status broadcasting
+
+## Technical Dependencies
+- Y.js for data synchronization
+- y-websocket for network transport
+- WebRTC for audio/video calls
+- File APIs for local storage
+- MediaDevices API for camera/microphone
+
+## Implementation Phases
+1. **Phase 1**: Basic UI and authentication
+2. **Phase 2**: Contact management and text chat
+3. **Phase 3**: File and token sharing
+4. **Phase 4**: Audio/video calling
+5. **Phase 5**: Encryption and security features
+6. **Phase 6**: Testing and optimization
+
+## Security Considerations
+- End-to-end encryption for all communications
+- Secure token management
+- Authentication and identity verification
+- No exposure of sensitive data in storage

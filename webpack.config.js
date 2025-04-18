@@ -8,9 +8,12 @@ const CopyPlugin = require('copy-webpack-plugin');
 
 module.exports = {
     mode: 'production',
-    entry: './browser-client.js',
+    entry: {
+        'uniroad-bundle': './browser-client.js',
+        'unitel-bundle': './unitel-client.js'
+    },
     output: {
-        filename: 'uniroad-bundle.js',
+        filename: '[name].js',
         path: path.resolve(__dirname, 'docs'),
         clean: true,
     },
@@ -65,10 +68,26 @@ module.exports = {
         new webpack.DefinePlugin({
             'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production')
         }),
-        // Generate HTML file
+        // Generate Uniroad HTML file
         new HtmlWebpackPlugin({
             template: './index.html',
             filename: 'index.html',
+            chunks: ['uniroad-bundle'],
+            inject: true,
+            minify: {
+                collapseWhitespace: true,
+                removeComments: true,
+                removeRedundantAttributes: true,
+                removeScriptTypeAttributes: true,
+                removeStyleLinkTypeAttributes: true,
+                useShortDoctype: true
+            }
+        }),
+        // Generate Unitel HTML file
+        new HtmlWebpackPlugin({
+            template: './unitel-web.html',
+            filename: 'unitel.html',
+            chunks: ['unitel-bundle'],
             inject: true,
             minify: {
                 collapseWhitespace: true,
