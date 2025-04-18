@@ -25,19 +25,24 @@ class UnitelDB {
         };
         this.contactPollInterval = null;
         
+        // Create a more distinct name for contact list collection
+        const contactListName = `user_contacts_list_${this.pubkey}`;
+        
         // Create shared and user-specific collections
         this.unitel = {
             // Shared between all users
             users: this.ydoc.getMap('users'),
             
             // User-specific data (using pubkey to ensure uniqueness)
-            contacts: this.ydoc.getMap(`contacts_${this.pubkey}`),
+            contacts: this.ydoc.getMap(contactListName),
             inventory: this.ydoc.getMap(`inventory_${this.pubkey}`),
             recipient: this.ydoc.getMap(`recipient_${this.name}`)
         };
         
         // Log the maps we're using for debugging
-        this.environmentHandlers.log(`Using user-specific maps: contacts_${this.pubkey}, inventory_${this.pubkey}, recipient_${this.name}`);
+        this.environmentHandlers.log(`Using user-specific contact list: ${contactListName}`);
+        this.environmentHandlers.log(`Using user-specific inventory: inventory_${this.pubkey}`);
+        this.environmentHandlers.log(`Using user-specific recipient inbox: recipient_${this.name}`);
 
         // Store the provider
         this.provider = provider;
