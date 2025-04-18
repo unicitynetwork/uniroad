@@ -25,14 +25,12 @@ class UnitelDB {
         };
         this.contactPollInterval = null;
         
-        // Use cryptographic hashing to create a truly unique identifier for this user
-        // This ensures that contact lists are not shared between users
-        const userUniqueId = this.TXF.sha256(this.name + this.secret).substring(0, 16);
-        
-        // Create explicit unique names for all user-specific collections
-        const contactListName = `contacts_for_${this.name}_${userUniqueId}`;
-        const inventoryName = `inventory_for_${this.name}_${userUniqueId}`;
-        const recipientName = `recipient_for_${this.name}_${userUniqueId}`;
+        // Use unique collection names based on the user's name only
+        // The nametag token ID will be used once it's created during initialization
+        // We don't need the nametag token ID immediately since a user's contacts are empty at first login
+        const contactListName = `contacts_for_user_${this.name}`;
+        const inventoryName = `inventory_for_user_${this.name}`;
+        const recipientName = `recipient_for_user_${this.name}`;
         
         // Create shared and user-specific collections
         this.unitel = {
