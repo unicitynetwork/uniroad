@@ -104,8 +104,15 @@ class UnitelDB {
     }
 
     _setupProviderEvents = () => {
+        // Flag to track initialization state
+        let initialized = false;
+        
         if (typeof this.provider.on === 'function') {
             this.provider.on('synced', () => {
+                // Prevent duplicate initialization
+                if (initialized) return;
+                initialized = true;
+                
                 this.environmentHandlers.log("Initializing...");
                 this.initUserName().catch(err => {
                     this.environmentHandlers.log(`Error initializing user: ${err.message}`);
