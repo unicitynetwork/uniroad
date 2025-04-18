@@ -44,7 +44,7 @@ class UnitelDB {
         };
         
         // Log the maps we're using for debugging
-        this.environmentHandlers.log(`Using cryptographically unique ID: ${userUniqueId} for ${this.name}`);
+        this.environmentHandlers.log(`User-specific collections for: ${this.name}`);
         this.environmentHandlers.log(`Contact list: ${contactListName}`);
         this.environmentHandlers.log(`Inventory: ${inventoryName}`);
         this.environmentHandlers.log(`Recipient inbox: ${recipientName}`);
