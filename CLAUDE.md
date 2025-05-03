@@ -12,7 +12,7 @@
   - HTTP pages: `ws://gateway-test1.unicity.network:7787` 
   - HTTPS pages: `wss://gateway-test1.unicity.network:7787` (requires SSL on server)
 - **Check server status**: HTTP GET `http://[server-host]:[port]/status`
-- **Tests**: None implemented (add with `npm test`)
+- **Tests**: `npm test` currently echoes "Error: no test specified" (no tests implemented)
 - **Lint**: None configured (add ESLint: `npm install --save-dev eslint && npx eslint --init`)
 - **Debug mode**: Set `DEBUG=y-websocket* npm run start-server` for detailed server logs
 
